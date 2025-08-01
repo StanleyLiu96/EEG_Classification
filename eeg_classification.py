@@ -13,7 +13,7 @@ from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
 # ====== PARAMETERS ======
-eeg_dir = "../../Dataset/MADEEG/processed_data/response_npy"
+eeg_dir = "../../Dataset/EEG_Responses_4_Instuments/responses/"
 batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
@@ -133,7 +133,6 @@ if not 'last_val_loss' in locals():
 for epoch in range(start_epoch, max_epochs + 1):
     print(f"\n========== Epoch {epoch} ==========")
     model.train()
-    # running_loss = 0
     for batch_idx, (X, y) in enumerate(train_loader):
         X = X.to(device)
         y = y.to(device)
@@ -142,7 +141,6 @@ for epoch in range(start_epoch, max_epochs + 1):
         loss = criterion(y_pred, y)
         loss.backward()
         optimizer.step()
-        # running_loss += loss.item()
         print(f"\n[Iter {cur_iter}] Train Loss: {loss.item():.4f}")
         tb.add_scalar("Train/Loss", loss.item(), cur_iter)
         tb.flush()
@@ -203,7 +201,6 @@ for epoch in range(start_epoch, max_epochs + 1):
                 "best_val_loss": last_val_loss
             }, os.path.join(best_ckpt_dir, checkpoint_name))
             print(f"✅ Best model updated at iter {cur_iter}.")
-
 
         cur_iter += 1
     print(f"Epoch {epoch} complete.")
