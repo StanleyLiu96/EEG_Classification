@@ -4,6 +4,7 @@ import glob
 import numpy as np
 import torch
 import shutil
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
