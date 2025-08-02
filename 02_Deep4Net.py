@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import TIDNet
+from braindecode.models import Deep4Net
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./TIDNet/best_ckpt"
-latest_ckpt_dir = "./TIDNet/latest_ckpt"
-tensorboard_dir = "./TIDNet/tensorboard"
+best_ckpt_dir = "./02_Deep4Net/best_ckpt"
+latest_ckpt_dir = "./02_Deep4Net/latest_ckpt"
+tensorboard_dir = "./02_Deep4Net/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -59,13 +59,11 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = TIDNet(
+model = Deep4Net(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length
-)
-model = model.to(device).float()   # ✅ 确保模型参数在 GPU
-
+).to(device)
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)
 
@@ -118,10 +116,6 @@ elif len(old_tb_files) == 1:
                 last_val_loss = event.value
                 print(f"Recovered Val-Loss at iteration {cut_off_iter}: {last_val_loss:.4f}")
                 break
-    # ✅ 给 last_val_loss 兜底值
-    if last_val_loss is None:
-        last_val_loss = 100.0
-        print("⚠️ 没找到 Val-Loss，使用默认值 100.0")
     tb = SummaryWriter(tensorboard_dir)
     for tag in ea.Tags()['scalars']:
         for event in ea.Scalars(tag):
@@ -135,7 +129,7 @@ elif len(old_tb_files) > 1:
 if not 'last_val_loss' in locals():
     last_val_loss = 100.0
 
-# ====== TRAINING LOOP ======
+# ====== TRAINING ======
 for epoch in range(start_epoch, max_epochs + 1):
     print(f"\n========== Epoch {epoch} ==========")
     model.train()
@@ -150,7 +144,6 @@ for epoch in range(start_epoch, max_epochs + 1):
         print(f"\n[Iter {cur_iter}] Train Loss: {loss.item():.4f}")
         tb.add_scalar("Train/Loss", loss.item(), cur_iter)
         tb.flush()
-
         # ====== VALIDATION (every iteration) ======
         model.eval()
         val_loss = 0
@@ -170,9 +163,8 @@ for epoch in range(start_epoch, max_epochs + 1):
         tb.add_scalar("Val/Loss", val_loss, cur_iter)
         tb.add_scalar("Val/Accuracy", val_acc, cur_iter)
         tb.flush()
-
         # ====== CHECKPOINTS ======
-        # Save latest checkpoint
+        # save the latest checkpoint
         latest_ckpt_path = os.path.join(latest_ckpt_dir, f"{cur_iter}.pt")
         ckpt_dict = {
             "cur_iter": cur_iter,
@@ -191,8 +183,7 @@ for epoch in range(start_epoch, max_epochs + 1):
                     os.remove(old_ckpt)
                 except Exception:
                     pass
-
-        # Save best checkpoint
+        # save the best checkpoint
         if val_loss < last_val_loss:
             print(f"Validation loss decreased from {last_val_loss:.4f} to {val_loss:.4f}, saving new best checkpoint")
             last_val_loss = val_loss

@@ -4,11 +4,12 @@ import glob
 import numpy as np
 import torch
 import shutil
+import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import EEGConformer
+from braindecode.models import EEGInception
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +19,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./EEGConformer/best_ckpt"
-latest_ckpt_dir = "./EEGConformer/latest_ckpt"
-tensorboard_dir = "./EEGConformer/tensorboard"
+best_ckpt_dir = "./04_EEGInception/best_ckpt"
+latest_ckpt_dir = "./04_EEGInception/latest_ckpt"
+tensorboard_dir = "./04_EEGInception/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -59,15 +60,18 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = EEGConformer(
+model = EEGInception(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length,
-    final_fc_length=2440,       # required for output shape matching
-    att_depth=6,
-    att_heads=10,
+    sfreq=1280,                             # use your actual sampling rate here
     drop_prob=0.5,
-    att_drop_prob=0.5,
+    scales_samples_s=(0.5, 0.25, 0.125),
+    n_filters=8,
+    activation=nn.ELU(alpha=1.0),
+    batch_norm_alpha=0.01,
+    depth_multiplier=2,
+    pooling_sizes=(4, 2, 2, 2),
     add_log_softmax=True
 ).to(device)
 criterion = CrossEntropyLoss()

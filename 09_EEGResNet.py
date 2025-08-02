@@ -4,12 +4,11 @@ import glob
 import numpy as np
 import torch
 import shutil
-import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import EEGInception
+from braindecode.models import EEGResNet
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -19,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./EEGInception/best_ckpt"
-latest_ckpt_dir = "./EEGInception/latest_ckpt"
-tensorboard_dir = "./EEGInception/tensorboard"
+best_ckpt_dir = "./09_EEGResNet/best_ckpt"
+latest_ckpt_dir = "./09_EEGResNet/latest_ckpt"
+tensorboard_dir = "./09_EEGResNet/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -60,19 +59,15 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = EEGInception(
+model = EEGResNet(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length,
-    sfreq=1280,                             # use your actual sampling rate here
-    drop_prob=0.5,
-    scales_samples_s=(0.5, 0.25, 0.125),
-    n_filters=8,
-    activation=nn.ELU(alpha=1.0),
-    batch_norm_alpha=0.01,
-    depth_multiplier=2,
-    pooling_sizes=(4, 2, 2, 2),
-    add_log_softmax=True
+    input_window_seconds=19,
+    sfreq=1280.0,   # = 1280.0
+    n_first_filters=32,  # ✅ required
+    final_pool_length="auto",  # ✅ recommended
+    add_log_softmax=False      # ✅ since you’re using CrossEntropyLoss
 ).to(device)
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)

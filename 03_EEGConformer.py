@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import EEGInceptionMI
+from braindecode.models import EEGConformer
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./EEGInceptionMI/best_ckpt"
-latest_ckpt_dir = "./EEGInceptionMI/latest_ckpt"
-tensorboard_dir = "./EEGInceptionMI/tensorboard"
+best_ckpt_dir = "./03_EEGConformer/best_ckpt"
+latest_ckpt_dir = "./03_EEGConformer/latest_ckpt"
+tensorboard_dir = "./03_EEGConformer/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -59,13 +59,16 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = EEGInceptionMI(
+model = EEGConformer(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length,
-    sfreq=24320 / 4.5,  # Sampling frequency, inferred from n_times and default input_window_seconds
-    input_window_seconds=4.5,  # Matching input length
-    add_log_softmax=False  # Disable LogSoftmax, CrossEntropyLoss expects raw logits
+    final_fc_length="auto",       # required for output shape matching
+    att_depth=6,
+    att_heads=10,
+    drop_prob=0.5,
+    att_drop_prob=0.5,
+    add_log_softmax=True
 ).to(device)
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)
@@ -138,6 +141,7 @@ for epoch in range(start_epoch, max_epochs + 1):
     model.train()
     for batch_idx, (X, y) in enumerate(train_loader):
         X = X.to(device)
+        X = X[..., :24320]  # trim to force exact length
         y = y.to(device)
         optimizer.zero_grad()
         y_pred = model(X)
@@ -154,6 +158,7 @@ for epoch in range(start_epoch, max_epochs + 1):
         with torch.no_grad():
             for val_X, val_y in val_loader:
                 val_X = val_X.to(device)
+                val_X = val_X[..., :24320]  # trim to force exact length
                 val_y = val_y.to(device)
                 val_out = model(val_X)
                 loss_val = criterion(val_out, val_y)

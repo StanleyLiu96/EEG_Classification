@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import HybridNet
+from braindecode.models import EEGITNet
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./HybridNet/best_ckpt"
-latest_ckpt_dir = "./HybridNet/latest_ckpt"
-tensorboard_dir = "./HybridNet/tensorboard"
+best_ckpt_dir = "./06_EEGITNet/best_ckpt"
+latest_ckpt_dir = "./06_EEGITNet/latest_ckpt"
+tensorboard_dir = "./06_EEGITNet/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -59,11 +59,14 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = HybridNet(
+model = EEGITNet(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length,
-    add_log_softmax=False  # Use CrossEntropyLoss
+    sfreq=24320 / 4.5,  # ≈ 5404.44 Hz
+    input_window_seconds=4.5,
+    drop_prob=0.4,  # default
+    add_log_softmax=False  # Use raw logits for CrossEntropyLoss
 ).to(device)
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)

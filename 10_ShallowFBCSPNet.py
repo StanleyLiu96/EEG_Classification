@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import EEGNetv1
+from braindecode.models import ShallowFBCSPNet
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./EEGNetv1/best_ckpt"
-latest_ckpt_dir = "./EEGNetv1/latest_ckpt"
-tensorboard_dir = "./EEGNetv1/tensorboard"
+best_ckpt_dir = "./10_ShallowFBCSPNet/best_ckpt"
+latest_ckpt_dir = "./10_ShallowFBCSPNet/latest_ckpt"
+tensorboard_dir = "./10_ShallowFBCSPNet/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -59,16 +59,15 @@ print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train:
 
 # ====== MODEL ======
 label_encoder = dataset.label_encoder
-model = EEGNetv1(
+model = ShallowFBCSPNet(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
     n_times=input_time_length,
-    input_window_seconds=4.5,
-    sfreq=24320 / 4.5,  # ≈ 5404.44 Hz
-    final_conv_length='auto',  # default
-    pool_mode='max',           # default
-    drop_prob=0.25,            # default
-    add_log_softmax=False      # for CrossEntropyLoss
+    final_conv_length="auto",  # More flexible than a fixed int
+    drop_prob=0.5,
+    batch_norm=True,
+    pool_mode="mean",
+    add_log_softmax=True
 ).to(device)
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)

@@ -8,7 +8,7 @@ from torch.utils.data import Dataset, DataLoader, random_split
 from torch.nn import CrossEntropyLoss
 from torch.optim import Adam
 from sklearn.preprocessing import LabelEncoder
-from braindecode.models import TCN
+from braindecode.models import TIDNet
 from torch.utils.tensorboard import SummaryWriter
 from tensorboard.backend.event_processing import event_accumulator
 
@@ -18,9 +18,9 @@ batch_size = 8
 max_epochs = 500
 learning_rate = 0.0001
 device = "cuda" if torch.cuda.is_available() else "cpu"
-best_ckpt_dir = "./TCN/best_ckpt"
-latest_ckpt_dir = "./TCN/latest_ckpt"
-tensorboard_dir = "./TCN/tensorboard"
+best_ckpt_dir = "./12_TIDNet/best_ckpt"
+latest_ckpt_dir = "./12_TIDNet/latest_ckpt"
+tensorboard_dir = "./12_TIDNet/tensorboard"
 os.makedirs(best_ckpt_dir, exist_ok=True)
 os.makedirs(latest_ckpt_dir, exist_ok=True)
 os.makedirs(tensorboard_dir, exist_ok=True)
@@ -58,38 +58,13 @@ n_batches_train = len(train_loader)
 print(f"Train set: {len(train_set)} | Val set: {len(val_set)} | n_batches_train: {n_batches_train}")
 
 # ====== MODEL ======
-class TCNWrapper(torch.nn.Module):
-    def __init__(self, base_model):
-        super().__init__()
-        self.base = base_model
-
-    def forward(self, x):
-        x = self.base(x)          
-        if x.ndim == 3:           
-            x = x.mean(-1)        
-        return x
 label_encoder = dataset.label_encoder
-model = TCN(
+model = TIDNet(
     n_chans=n_channels,
     n_outputs=len(label_encoder.classes_),
-    n_times=input_time_length,   
-    n_blocks=4,                  
-    n_filters=32,                
-    kernel_size=8,               
-    drop_prob=0.5,               
-    add_log_softmax=True
+    n_times=input_time_length
 )
-model = TCN(
-    n_chans=n_channels,
-    n_outputs=len(label_encoder.classes_),
-    n_times=24320,
-    n_blocks=4,
-    n_filters=32,
-    kernel_size=8,
-    drop_prob=0.5,
-    add_log_softmax=True
-)
-model = TCNWrapper(model).to(device).float()
+model = model.to(device).float()   # ✅ 确保模型参数在 GPU
 
 criterion = CrossEntropyLoss()
 optimizer = Adam(model.parameters(), lr=learning_rate)
